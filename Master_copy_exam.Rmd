@@ -1,0 +1,377 @@
+---
+title: "Master_Assessment_R_Markdown"
+author: '10304759'
+date: "02/01/2022"
+output:
+ prettydoc::html_pretty:
+   theme: cayman
+   highlight: default
+   toc: TRUE
+   toc_depth: 4
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# Introduction
+In this assessment we will be using open source software known as R (language) and RStudio Desktop (integrated development environment). Then using R Markdown, formulate a report containing the code, code output along with guided narrative. Using open source software like R allows us to write reproducible code which involves data wrangling, generating unique visulisations and building statistical models. Open source software comes with many advantages over proprietary software (MATLAB and Microsoft Excel etc.) for example, being free and having the ability to share freely aiding the ability to produce reproducible research and therefore help overcome the replication crisis.
+
+# R Markdown Customisation
+Firstly, it may be important to layout your R markdown document for example, in this document rather than going with the default theme I used the `prettydoc` package allowing me to knit my R Markdown document into pretty HTML `prettydoc::html_pretty` with a chosen theme of `cayman`, I also used the `highlight` option to highlight R text. In addition, as this assessment contains 3 questions I thought it would be best to add a table of contents using the `toc` option and specify the depth of the headers using `toc_depth` for ease of navigation. However, just to note it's currently impossible to use both the `html_prettydoc` function and `toc_float` in the same markdown file. Meaning the table of contents will not move down with you as you scroll however, it still works as it should so clicking on each section will navigate you to the relevant part.
+
+# Libraries
+One fundamental part of coding in R, is loading in our packages. It's common practice to do this at the start and at the top of the script, this is because it allows other fellow researchers to see which packages they may need to install on their computer beforehand to run your script, to install a package you can use the `install.packages(*packagename*)`. The first package to load using the `library()` function is `tidyverse` which will allow us to wrangle and tidy our data into the correct format, allowing us to visualise and model the data. Looking at the questions it's heavily ANOVA based so the `afex` package will allow us to use the `aov_4()` function to allow model building but also the `emmeans` package to run pairwise comparisons allowing us to look at main effects and interactions. Next we may want to load the `visdat` package as if we encounter any missing data this package will allow use to visulise the missing data and deal with it accordingly using certain functions (e.g. `vis_miss`). An extra package we may want to load is `jcolors` this provides us with a series of aesthetically pleasing palettes which may improve our visulisations. Another package `plotly` allowed for the production of interactive graphs in which I chose the most appropriate graph to demonstrate it's function and not just putting it on all of them.
+
+```{r, message=FALSE}
+# Loading all the libraries
+library(tidyverse) # Load the tidyverse
+library(afex) # Load afex for running ANOVA
+library(emmeans) # Load emmeans for running pairwise comparisons
+library(visdat) # Allows us to deal with missing data
+library(jcolors) # Choose better colour palettes for the visulisations
+library(plotly) # Produce interactive graphs (see question 2)
+```
+
+# Question 1
+## Reading and Wrangling the Data
+First we read in our data using the `read_csv` function in which then we can explore our data set by looking at the first 6 lines of our dataset using the `head()` function. In this data we want to see how quickly people pronounce a word when the word was presented normally (condition_a) or visually degraded (condition_b). We would hypothesise that peoples response time would be worse when trying to pronounce the visually degraded word. The analysis of variance (ANOVA) model for this question is a between participants ANOVA.
+
+```{r, message=FALSE}
+Assessment1_data <- read_csv("assignment_dataset_1.csv")
+head(Assessment1_data)
+```
+
+We can see in this tibble we have 3 variables but the experimental variable `condition` is coded as a `character` and not a `factor` so we can change that. We may also want to tidy up our dataset more by upper-casing our variables but also in the condition variable, it's more relevant to the scenario by changing condition_a into Normally_Presented_Words and condition_b into Visually_Degraded_Words.
+
+```{r}
+# Tidying up the dataset
+Assessment1_data_tidied <- Assessment1_data %>%
+  mutate(condition = factor(condition)) %>%
+  rename_with(str_to_title) %>%
+  rename(Response_Time = Response_time) %>%
+  mutate(Condition = recode(Condition, "condition_a" = 
+                            "Normally_Presented_Words",
+                            "condition_b" = "Visually_Degraded_Words"))
+```
+
+You can see from the new output we have tidied up the data so it looks more presentable. We have converted the `Condition` variable into a factor using the `mutate` function, then using the pipe (`%?%`) I've added the next lines of edits. The `rename_with(str_to_title)` allowed for capitalisation of the first letter of our variables. However, this meant Response_time has a lower case t, so to change that the `rename` function was used to change it into Response_Time. Finally in our experimental variable condition_a which represents normally presented words maybe better presented as Normally_Presented_Words and condition_b would be better presented as Visually_Degraded_Words. I found it easier to use the `mutate` along with `recode` which allowed me to convert condition_a into Normal_Presented_words and the same for condition_b to Visually_Degraded_Words. This code was all mapped onto `Assessment1_data_tidied`. Now the data better matches the experimental design and is all tidied.
+
+```{r}
+head(Assessment1_data_tidied)
+```
+
+As you can see, Condition is now a factor and Participant and Response_Time has been capitalised along with Condition. Also condition_a is now Normally_presented_Words, the same is true for condition_b = Visually_Degraded_Words. However, as we have used the `head()` function we cannot see the Visually_Degraded_words as the data set is 96 participants long and we can only see the first 6 lines but if you open up the whole data set you'll be able to see that it's changed.
+
+## Summarising and Visulising the Data
+It's important to do some summarising and visulisations because it allows us to have an idea of which direction our data is leading towards. This means when we carry out the ANOVA model and we find out we don't get the same effects that are seen in the visulisation, it is usually a good indicator that something has most likely gone wrong in coding the model. 
+
+First we carry out some summary statistics see code below:
+
+```{r}
+Assessment1_data_tidied %>%
+  group_by(Condition) %>%
+  summarise(mean = mean(Response_Time), sd = sd(Response_Time))
+```
+
+
+Using our tidied data `Assessment1_data_tidied` we can group by Condition using the `group_by` function, meaning we can work out our mean and standard deviation for Response_Time in our Normally_Presented_Words condition and Visually_Degraded_Words condition using the `summarise` function. Looking at this data the visually_Degraded_Words condition had a longer response time in comparison to the Normally_Presented_words. 
+
+Next we can visualise our data, we could build  bar chart of the means but this wouldn't really add to whats already been shown by the summary stats. A better alternative would be to produce a ggplot using the geom functions (`geom_violin()` and `geom_jitter()`). First we start with the data we want to visulise and then `%>%` (pipe) through the lines of code we need to generate a specific graph.
+
+So using `ggplot` we set our desired aesthetics, in this case we want the condition on the x axis and response time on the y axis, we also apply a colour to the conditions. It's important to note due to how ggplot packages have been created in order to add other alterations to the graph we use the `+` symbol rather than the `%>%` otherwise it wouldn't run. Next we add our geoms, so `geom_violin()` which shows us the distribution shape of our data for each condition. Then `geom_jitter()` which plots the raw data points in which a small amount of random variation is allocated to each point to help with overplotting. The `width` helps to control the spread of the points and `alpha` which helps make points more transparent to easily distinguish overlapping points. The `guides(colour = "none")` line removes the key that would appear because of the colours and we've also added summary data (mean and confidence intervals), which is black on the graph using the `stat_summary()` function. Using the `theme` function not only have we set the size of the text to 14 using ` theme(text = element_text(size = 14))` line of code but also we've added something extra to make the graph more appealing `theme_classic()`. What this has done is removed the grayish background but also defined our axes borders. Title and axis labels have been added using the `labs` function. Finally another extra line of code on top of `theme_classic`, I've used the `jcolors` package to change the palette aesthetic which is more pleasing than the default colours. This is done by using the `scale_colour_jcolors` function in which I went with palette 3 (`pal3`).
+
+```{r}
+Assessment1_data_tidied %>%
+  ggplot(aes(x = Condition, y = Response_Time, colour = Condition)) +
+  geom_violin() +
+  geom_jitter(width = .05, alpha = .8) +
+  scale_colour_jcolors(palette = "pal3") +
+  guides(colour = "none") +
+  stat_summary(fun.data = "mean_cl_boot", colour = "black") +
+  theme_classic() +
+  theme(text = element_text(size = 14)) +
+  labs(title = "Examining the effect of word presentation on response time",
+       x = "Condition",
+       y = "Response Time (ms)")
+```
+
+Can see from the graph the data follows the summary statistics in which the visually degraded words had a longer response time to pronounce compared to the normally presented words.
+
+## ANOVA Model and Effects
+Moreover, we can now build the model using the `aov_4()` function from the `afex` package. Within this line of code we have specified the dataset we are using `data = Assessment1_data_tidied` to build the model. We have a random effects term which is the `(1 | Participant)` and the `~` symbol means to be predicted by. We then map the output from this line of code onto the variable `Between_participant_model`. So, in this scenario we are saying our dependent variable (Response_Time) is predicted by our experimental variable (Condition) + our random effects term (sample is random from the population).
+
+```{r}
+Between_participant_model <- aov_4  (Response_Time ~ Condition + (1 | Participant),
+                  data = Assessment1_data_tidied)
+```
+
+Using the `summary()` function we can see the output from the model just created.
+```{r}
+summary(Between_participant_model)
+```
+
+We can see our F value = 15.828 and our P-value is 0.0001364 demonstrating that our ANOVA model is showing an effect of condition on response time. As there is only two levels to our condition factor there is no reason to carry out any following pairwise tests. Simply using the descriptive statistics in this situation is enough to inform us that response is `1020` if the words are visually degraded meaning it takes them longer to pronounce the word when compared to the normal presented words in which the response time is `1002`. This matches our hypothesis we mentioned previously.
+
+# Question 2
+## Reading and Wrangling the Data
+
+We conduct a similar situation to question 1 by reading in the data using the `red_csv` function and view the first 6 lines using the `head()` function. In this dataset we have the exact same data presented in question 1. However, with the added effect of caffeine consumption, measured in cups of coffee for each individual. In this example, we are now looking at the effect of visual quality on our dependent variable (response time) after we have removed the influence of caffeine consumption (co-variate). The appropriate anova this time is an AN(C)OVA (analysis of covariance). 
+
+```{r, message=FALSE}
+Assessment2_data <- read_csv("assignment_dataset_2.csv")
+head(Assessment2_data)
+```
+
+As you can see the data needs to be tidied just like before so it's more representative of the experimental design. We use exactly the same code as before as the only new variable is caffeine which just needs to be capitalised, in which `rename_with(str_to_title)` function will take care of that. In this case we have mapped it all onto a new variable `Assessment2_data_tidied`.
+
+```{r}
+Assessment2_data_tidied <- Assessment2_data %>%
+  mutate(condition = factor(condition)) %>%
+  rename_with(str_to_title) %>%
+  rename(Response_Time = Response_time) %>%
+  mutate(Condition = recode(Condition, "condition_a" = 
+                            "Normally_Presented_Words",
+                            "condition_b" = "Visually_Degraded_Words"))
+head(Assessment2_data_tidied)
+```
+
+Our tibble now looks more appropriate and as you can see everything is the same as before but now with the added column of caffeine consumption per individual.
+
+## Summarising and Visualisng the Data
+As before we can summarise and visualise the data, as it's the same data we will get the same summary descriptive statistics. However, to remind ourselves of the means we can just use the same line of code as before.
+
+```{r}
+Assessment2_data_tidied %>%
+  group_by(Condition) %>%
+   summarise(mean = mean(Response_Time), sd = sd(Response_Time))
+```
+
+As you can see we have the same means for Visually_Degraded_Data response time 1020 (ms) and for Normally_Presented_Words 1002 (ms). However, we can now move onto visualising our data with caffeine consumption being present. It's important to note any lines of code I've used before in previous questions I will not repeat why I used them as the explanations can be seen in previous questions. So only new lines of code for the visualisations will be discussed and explained. 
+
+In this particular plot I decided to build an interactive plot, so if you click, then hover over the individual points it will inform you of the caffeine consumption (number of cups), the response time to the visual condition and the visual condition the individual was involved in. You can also do other things such as zoom in and if you click on one of the conditions in the legend it will hide the points allowing easier identification of points. To do this I used the package `plotly` which allowed me to read out my graph in interactive form when using the function `ggplotly`. This graph was mapped onto a new variable called `Interactive_plot`. Other new lines of code include the `geom_point` function, which allows us to plot the raw data points of all the individuals. 
+
+```{r}
+Interactive_plot <- Assessment2_data_tidied %>%
+  ggplot(aes(x = Caffeine, y = Response_Time, colour = Condition)) +
+  geom_point(size = 3, alpha = .4) +
+  scale_colour_jcolors(palette = "pal3") +
+  theme_classic() +
+  theme(text = element_text(size = 12)) +
+  labs(x = "Caffeine Consumption (number of cups)",
+       y = "Response Time (ms)")
+  
+ggplotly(Interactive_plot)
+```
+
+From this graph, just looking at caffeine consumption and the effect it has on response time seems rather weak. There is no real relationship at present, if there is it's really small which are AN(C)OVA model will be able to identify. Interestingly for reasons due to randomness the visually degraded group seem to drink more cups of coffee in comparison to the normally presented word group, can see the slight clustering of the normal group to the left (less cups of coffee) and clustering of the visual degraded group to the right (more cups of coffee). 
+
+## AN(C)OVA Model and Effects
+
+As we saw in question one we've already built an ANOVA model which has suggested that condition has a significant effect on word pronunciation response time. Now however, we need to take into consideration of our covariate (Caffeine). So we build a ANCOVA model in which our covariate is added before our experimental condition. We also include the `factorize` parameter and set it to `FALSE` because caffeine consumption is a continuous variable rather than an experimental factor.
+
+```{r, warning=FALSE, message=FALSE}
+ANCOVA_model <- aov_4(Response_Time ~ Caffeine + Condition
+                      + (1 | Participant), data = Assessment2_data_tidied,
+                      factorize = FALSE)
+```
+
+So what this model is saying is that our dependent variable is predicted by caffeine consumption + our condition + the random effect term `(1 | Participant)`.
+
+We can view the output using the `anova` function similar to the `summary` function used in question 1.
+
+```{r}
+anova(ANCOVA_model)
+```
+
+From this we can see we have lost the effect of condition on response time when considering caffeine intake. We have a really small F value (3.5654) and p-value which is no longer significant (6.2%). However, we also don't have an effect of caffeine consumption on response time also, which matches our visulisation in which no relationship was really present (F-value = 1.136, p-value = 28.9%). Therefore we can no longer conclude visual quality alone can have a significant effect on response time. On the basis of this output there would be no need to conduct a pairwise comparison. However, in order to answer question 2(b) we need to see the adjusted means for our condition groups (the means taking into account the covariate). This can be done using the `emmeans` function.
+
+```{r}
+emmeans(ANCOVA_model, pairwise ~ Condition)
+```
+
+From this you can see that the adjusted means are now `1005` for Normally_presented_Words and `1018` for Visually_Degraded_Words. These means will be used in part b to show that ANCOVA has a linear equivalent and that ANO(C)VA and linear regression are practically the same thing.
+
+# Question 2 part b
+
+## Building the Equivalent Linear Model
+
+First we can code this ANOCVA as a linear model through the use of dummy coding. We can check to make sure our condition factor is coded in the right format using contrasts. We want the Normally_Presented_Words to be the reference level (intercept of our linear model) and dummy coded as 0.
+
+```{r}
+contrasts(Assessment2_data_tidied$Condition)
+```
+
+Using the line of code from above we are asking R to view the contrasts from the contrast matrix it generated and you can see that the code is currently coded in the correct format for the linear model, so we don't need to alter anything.
+
+We can now model the ANCOVA as a linear model using the `lm()` function. Then we can view the result by putting `ANCOVA_lm_model` in the console.
+
+```{r}
+ANCOVA_lm_model <- lm(Response_Time ~ Caffeine + Condition,
+                       data = Assessment2_data_tidied)
+
+ANCOVA_lm_model
+```
+
+The coefficients are calculated within our linear model and then we can interpret these results in terms of using the equation from the general linear model which in this situation it would be represented as:
+
+Response_Time = intercept(Normally_Presented_words) + β1 (Caffeine) + β2 (Visually_Degraded_Words)
+
+So to calculate the mean of Normally_Presented_Words, using the contrast code we would represent Visually_Degraded_words as 0. Whereas is we wanted to work out the mean of the Visually_Degraded_Words condition we would represent it as 1. This information comes from the contrast code.
+
+β1 and β2 are coefficients in which β2 tells us the difference between each groups adjusted mean. So β2 is the difference between the normal and degraded group (1018-1005 = 13) which matches the output from the linear model when you round up 12.783 to 13. So the difference between the adjusted means from the ANCOVA match the coefficient generated in our linear model.
+
+Using the equation above in which we can incorporate both the coefficients and contrast code we can work out the means for normal and degraded word condition groups. Important to note the covariate Caffeine is not a factor and not present in our coding scheme, so we need to enter the mean. We can get the mean by using `mean(Assessment2_data_tidied$Caffeine)` which will produce a mean of 2.55.
+
+```{r}
+mean(Assessment2_data_tidied$Caffeine)
+```
+
+These are the two examples in which we've used the coefficients generated from the linear model and the contrast code and put then into our equation mentioned above.
+
+Mean for Normally_Presented_Words:
+
+Response_Time = 998.547 + 2.489(2.55) + 12.781(0)
+
+Response_Time = 1004.89 rounded = 1005
+
+`1005` is the adjusted mean for the Normally_Presented_Words group which is exactly what we had when we called the `emmeans` function following the ANCOVA
+
+Mean for Visually_Degraded_Words:
+
+Response_Time = 998.547 + 2.489(2.55) + 12.781(1)
+
+Response_Time = 1017.6 rounded = 1018
+
+Again `1018` is the adjusted mean for the Visually_Degraded_Words condition which is exactly what we got from the emmeans following the ANCOVA model.
+
+When comparing the two, ANCOVA and linear models you can see by using dummy coding they are practically the same thing as the means from the linear model are the same as the adjusted means from the ANCOVA model.
+
+A final thought is that this is not just exclusive to ANCOVA, the same is true for ANOVA models e.g., we could build linear models for the first ANOVA question and ultimately using dummy coding find that they both produce the same means. However, as the question states "build the equivalent linear model' I have chosen not to show them, but using similar coding schemes as shown above we can reach the same outcomes.
+
+# Question 3
+## Reading and Wrangling the Data
+Same as every other time we read in our data using the `read_csv` function and then use the `head()` function to see the first 6 lines of our code. This data is a new dataset involving 148 participants who responded to a target image that was positive or negative. The target was preceded by a prime that was either negative or positive in valence. In this experiment we want to see if peoples response times are faster to the positive/negative image when is was preceded by the same respective prime e.g, negative image following a negative prime (relative to following a positive prime).
+
+```{r, message=FALSE}
+Assessment3_data <- read_csv("assignment_dataset_3.csv")
+
+head(Assessment3_data)
+```
+
+As you can see from the tibble we have a few problems we need to tidy up to make this data useful and easily readable for R to understand. This first problem is the data is in wide format in which our variables have been split into 4 columns. Most data in R requires to be in long format and to make it more relevant we need a `Prime` variable and a `Target` variable to allow for more appropriate analysis later down the line. To accomplish this there are multiple ways but I went with first turning the 4 columns using the `pivot_longer` function into longer format rather than the wider format. We also present arguments e.g, `name_to` function, which is a string specifying the name of the column to create in which our data will be stored. Then we use `values_to` function which is again a string which creates a column to store our values from our data, in which this case it's response time. 
+
+```{r}
+Longer_data <- Assessment3_data %>%
+  pivot_longer (cols = c(positiveprime_positivetarget,
+                         positiveprime_negativetarget,
+                         negativeprime_positivetarget,
+                         negativeprime_negativetarget),
+                names_to = "Condition",
+                values_to = "Response_Time")
+head(Longer_data)
+
+```
+
+From this, you can see we have our variables now coded under the Condition column and their respective values assigned to the Response_Time column. However, the data still is not fully tided, this is because we are conducting a repeated measures design in which we have two factors (prime and target) each with both 2 levels (positive and negative). So we need to represent that in our data frame to better match the experimental design. So in order to so, we basically split out condition column into separate prime and target columns using the `seprate() function`, in which we base the separation upon the presence of a `"_"`. We also need to make sure prime and target are factors so we do that just like before using the `mutate` function and to make sure participant is upper cased we simply use the `rename` function and now it becomes Participant. A final thing we may want to do might be personal preference but looking at the data you can see that the word prime and target occur in every observation (row) following whether it's negative or positive. Well we know which variable is prime and which one is target based on the label of the column so it might be better if we rename them to get rid of the repeated prime and target words. This will make labeling much easier in terms of visulisations so you don't have incredibly long labels. We do this in a very similar way using `mutate` and `recode` like we did in the previous questions when we changed the conditions into the actual visual quality variable.
+
+```{r}
+Assessment3_data_tidied <- Longer_data %>%
+  separate(col = "Condition", into = c("Prime", "Target"), sep = "_") %>%
+  mutate(Prime = factor(Prime), Target = factor(Target)) %>%
+  rename(Participant = participant) %>%
+  mutate(Prime = recode(Prime, "positiveprime" = 
+                            "Positive",
+                            "negativeprime" = "Negative")) %>%
+  mutate(Target = recode(Target, "positivetarget" = "Positive",
+                         "negativetarget" = "Negative"))
+  
+
+head(Assessment3_data_tidied)  
+```
+
+Now our data is in the optimal format for analysis, you can see our experimental variables prime and target are now coded as factors and the variables have been capitalised. The data is also in longer format in which R can easily understand and this is how most analysis is conducted in R by having data in longer format rather than wider. Furthermore, in both prime and target variables we have re-coded in such a way that we have just the word negative or positive which is nicer to read and more clearer to understand. 
+
+## Summarising and Visualising the Data
+First we can generate some summary statistics to give us an idea of which direction our effects might be occurring. We do this the same way as we have done previously using `group_by` and `summarise` functions.
+
+```{r, message=FALSE}
+Assessment3_data_tidied %>%
+  group_by(Prime, Target) %>%
+  summarise(mean = mean(Response_Time), sd = sd(Response_Time))
+```
+
+From these results are data is rather close to each other suggesting a weak relationship. However, irrespective of that we can see that negative target preceded by negative prime does have a faster response (`1547`) time time in comparison to negative target preceded by positive prime (`1567`). We have the same relationship for positive target preceded by a positive prime, which has a faster response time (`1547`) in comparison to positive target and negative prime (`1563`). 
+
+When looking at the means we can see there is a similar difference in magnitude between the negative target and its primes (positive and negative) and that of the positive target and its primes (positive and negative), with a difference of 20ms and 16ms respectively. This suggests there may be crossover interaction effects between these two factors, in which we did confirm when running the repeated measures factorial ANOVA model. In which there was no effect of factor one (prime) and no effect of factor two (target) however, there is an interaction effect between the two. This can be seen under the anova model built later on.
+
+It's important to note that in all 3 questions we've had complete data sets with no missing data. In the real world this wouldn't always be the case for example, participants may drop out from the study or may ask to remove the data from the study, in which as a researcher you are obliged to do if a participant wishes to do so. They may also develop a condition during the study which may impact your results e.g. if it was a longitudinal study, so you have to remove their data and the results become void. Furthermore, a hypothetical example in this study, the researcher may simply forget to record the response time and may not remember, therefore we develop missing data. In this study this is not the case and we have a complete data set. Therefore, we have had no need to use the `visdat` package but to demonstrate it's function we can show that we have no missing data. We can use the `viss_miss` function which will inform us of any missing data and where that missing data is within our data set. If we did have missing data we would simply tell R to ignore it using the ` na.rm = TRUE` parameter.
+
+```{r}
+vis_miss(Assessment3_data_tidied)
+```
+
+As you can see we have a 100% data set fully complete in which no data is missing from either variable.
+
+Next we can move onto visualising our data to see the relationships between the experimental variables more clearly. So again very similar to before we start with the data we want to visualise `Assessment3_data_tidied` and then pipe (`%>%`) the following instructions which will generate our graph. Within the `ggplot` we want to plot a combination of two factors (prime and target), we can do this in the `aes` part of the code and define the interaction as `Prime:Target`. The most appropriate geoms would be the same as last time to show distribution of the data (`geom_violin`) and raw data points (`geom_jitter`). Due to many data points I went with `width` .1 and transparency (`alpha`) of .3 and also again removed the key `guides(colour = 'none')`. I thought I'd demonstrate another series of colour palettes rather than just `jcolours`. The brewer colours can be found in the `ggplot2` package which is integrated into the `tidyverse` package already. For appropriateness you can filter the palettes based on colorblind friendly therefore allowing people who may be colour blind, can still understand your graph. You can do this using the `display.brewer.all(colorblindFriendly = TRUE)`, in which I went with the `Dark2` palette. Using the `scale_color_brewer` function derived from `ggplot2` package I can apply the colour scheme. Following on, I added the mean with confidence internals, again using the `stat_summary` function and then I edited the `theme` and applied axes labels.
+
+```{r}
+Assessment3_data_tidied %>%
+  ggplot(aes(x = Prime:Target, y = Response_Time, colour = Prime:Target)) + 
+  geom_violin() +
+  geom_jitter(width = .1, alpha = .3) +
+  guides(colour = 'none') +
+  scale_color_brewer(palette = "Dark2") +
+  stat_summary(fun.data = "mean_cl_boot", colour = "black") +
+  theme_classic() +
+  theme(text = element_text(size = 13)) +
+  labs(x = "Prime X Target", y = "Response Time (ms)")
+```
+
+From this graph we can see it matches the descriptive statistics in which peoples performances (response time) was faster when the image (target) was preceded by the same valence setting. What I mean is that when the target was negative and preceded by a negative prime (green) there was a faster response time when comparing a negative target preceded by a positive prime (purple/blueish). Again the same is true for positive primes followed by a positive target (pink), there response to the image was quicker in comparison to positive images preceded by a negative prime (brown/orange).
+
+
+## ANOVA Model and Effects
+Next we are going to build our ANOVA models in which we are looking at a repeated measures factorial design ANOVA. Building this model follows similar syntax rules to previous repeated measure design in question 1. However, we have 2 experimental factors in which we have to specify in our model, in which we do so by saying `Prime * Target`. This stands for a main effect of prime + a main effect of target + and the interaction of the two factors. Due to both repeated measures factors we also specify them in the random effect term `(1 + Prime * Target | Participant)`. We can now build our model and map it onto the `Factorial_model` term, which we can the see the output using the `anova` function.
+
+```{r}
+Factorial_model <- aov_4(Response_Time ~ Prime * Target +
+                         (1 + Prime * Target | Participant),
+                    data = Assessment3_data_tidied)
+
+anova(Factorial_model)
+```
+
+Can see in the output that not only are both the main effects of prime and target not significant, in both cases the F ratio is less than 1 meaning it can never be significant even if we applied more observations because it's informing us we have more unsystematic variance than systematic variance. So we have no main effects but we do have a significant interaction effect with an F value of 17.1778 and a p-value which is significant at less than 0.001.
+
+In this situation it would mostly likely be beneficial to treat the items as a random effect also, meaning in this study this would be the different images the participants are exposed to. It's not possible to show all possible stimuli to each individual participant. What I mean by this is you cannot present every possible image which is associated with a positive connotation and then present all of them to a participant, the same is true for negative images. So what we are doing is sampling the stimuli from a population of images (stimuli). However, it's not possible to run such a model here as the data being given does not include an item column. Furthermore, if it did contain one you could easily run the model by switching `participant` with `item` but it's important to note the `aov_4()` function only allows one random effect term per model. This has lead to movements away from ANOVA and more to towards linear mixed models in which you can model multiple random effect terms simultaneously. Generalised linear mixed models (GLMMs) also provide other advantages other ANOVA as well, causing a drive for GLMMs instead.
+
+Moreover, we can now interpret our ANOVA model and view this interaction effect when the participants are the random effect term, in which we use the `emmeans` function. In this situation we have removed any automatic adjustments of the p-values because of the 6 pairwise comparisons calculated, only a couple provide theoretical meaning. This is done by using `adjust = "none'`. So in this situation as mentioned previously and specified in the question, we are only interested in the comparisons of negative target images if preceded by negative vs positive primes and also positive target images if preceded by negative vs positive primes.
+
+```{r}
+emmeans(Factorial_model, pairwise ~ Prime * Target, adjust = "none")
+```
+
+Using the information we can see we don't have six meaningful pairwise comparisons but actually only two key fundamental pairwise comparisons, the 1st and 6th line in the comparison results. We can now do our manual corrections for multiple comparisons (only 2) to gain the true p-values. This is done by multiplying the calculated p-values by 2 as the amount of meaningful pairwise comparisons is 2.
+
+So our new p-values are:
+
+For negative targets (images) preceded by positive vs negative primes = 0.0021 * 2 = 0.0042
+
+For positive targets (images) preceded by positive vs negative primes = 0.0042 * 2 = 0.0084
+
+What we can conclude is that we have an interaction effect being driven by negative targets (images) being responded to more quickly preceding negative primes relative to positive primes. Similar effects can be seen for positive targets (images), meaning positive target responses are faster when preceded by a positive prime relative to a negative prime.
+
+
+Finally as an example for this question in particular, we may want to write up our results in a more scientific format:
+
+In this question I conducted a 2 x 2 repeated measures ANOVA to investigate if response time was faster for positive targets if preceded by positive primes (relative to following a negative prime) and faster to negative images (targets) following a negative prime (relative to following a positive prime). The ANOVA demonstrated that there was no main effects of primes (F<1) and target (F<1), but an interaction effect was found between prime and target (F = 17.1778), p < 0.001.
+
+Using manual corrections the interaction was further interpreted by pairwise comparisons. Showing that the interaction was driven by negative targets being responded to faster when preceded by negative primes vs positive primes (1547 ms vs 1567 ms, p = 0.0042) whereas positive targets are responded to faster when preceded by positive primes vs negative primes (1547 ms vs 1563 ms, p = 0.0084).
+
+Overall, the hypothesis in the question is true.
+
+# Binder
+
+A final added section is the use of binder, which our code and data in the computational environment it was performed in. This makes it easier for our research to become fully reproducible and also become easier to share. So when people are analysing our data e.g., maybe answering the questions we answered they will be building the same statistical models we built when analysing the data. The gold standard for reproducible data is having the capacity to execute our code and data in the computational environment it was originally executed in. This is because code may break, previous code that worked may not work anymore but also code that did work still does but produces different results or generates new warnings (due to updated package versions). So, overall we need to capture the versions of the different R packages but also the version of R you are using for the analysis. We do this using binder which employees the use of Docker (packages everything to ensure that your code etc runs smoothly in any environment it's presented).
+
+We can basically create a link in which other people can open up the data in th web browser without having to share screens etc, in which this link contains the R code, data and the appropriate versions of the packages you used originally to analyse the data.
